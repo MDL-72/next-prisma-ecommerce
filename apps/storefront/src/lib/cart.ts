@@ -5,12 +5,26 @@ export function writeLocalCart(items) {
 export function getLocalCart() {
    if (typeof window !== 'undefined' && window.localStorage) {
       try {
-         return JSON.parse(window.localStorage.getItem('Cart'))
+         const raw = window.localStorage.getItem('Cart')
+         if (!raw) {
+            const empty = { items: [] }
+            writeLocalCart(empty)
+            return empty
+         }
+         const parsed = JSON.parse(raw)
+         if (!parsed || !Array.isArray(parsed.items)) {
+            const empty = { items: [] }
+            writeLocalCart(empty)
+            return empty
+         }
+         return parsed
       } catch (error) {
-         writeLocalCart({ items: [] })
-         return { items: [] }
+         const empty = { items: [] }
+         writeLocalCart(empty)
+         return empty
       }
    }
+   return { items: [] }
 }
 
 export function getCountInCart({ cartItems, productId }) {

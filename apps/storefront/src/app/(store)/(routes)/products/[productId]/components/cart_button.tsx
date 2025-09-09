@@ -7,6 +7,7 @@ import { getCountInCart, getLocalCart } from '@/lib/cart'
 import { CartContextProvider, useCartContext } from '@/state/Cart'
 import { MinusIcon, PlusIcon, ShoppingBasketIcon, X } from 'lucide-react'
 import { useState } from 'react'
+import { toast } from 'react-hot-toast'
 
 export default function CartButton({ product }) {
    return (
@@ -84,9 +85,11 @@ export function ButtonComponent({ product }) {
             dispatchCart(localCart)
          }
 
+         toast.success('Added to cart')
          setFetchingCart(false)
       } catch (error) {
          console.error({ error })
+         toast.error('Failed to add to cart')
       }
    }
 

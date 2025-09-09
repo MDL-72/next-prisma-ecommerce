@@ -2,47 +2,46 @@ import { ProductGrid, ProductSkeletonGrid } from '@/components/native/Product'
 import { Heading } from '@/components/native/heading'
 import { Separator } from '@/components/native/separator'
 import prisma from '@/lib/prisma'
+import { queryProducts } from '@/lib/products-query'
 import { isVariableValid } from '@/lib/utils'
 
-import {
-   AvailableToggle,
-   BrandCombobox,
-   CategoriesCombobox,
-   SortBy,
-} from './components/options'
+import { Filters } from './components/filters'
 
 export default async function Products({ searchParams }) {
-   const { sort, isAvailable, brand, category, page = 1 } = searchParams ?? null
+   const {
+      q,
+      sort,
+      isAvailable,
+      brand,
+      categories,
+      minPrice,
+      maxPrice,
+      page = '1',
+      pageSize = '12',
+   } = searchParams ?? {}
 
-   const orderBy = getOrderBy(sort)
+   // Preload options (SS)
+   const [brands, cats] = await Promise.all([
+      prisma.brand.findMany({ orderBy: { title: 'asc' } }),
+      prisma.category.findMany({ orderBy: { title: 'asc' } }),
+   ])
 
-   const brands = await prisma.brand.findMany()
-   const categories = await prisma.category.findMany()
-   const products = await prisma.product.findMany({
-      where: {
-         isAvailable: isAvailable == 'true' || sort ? true : undefined,
-         brand: {
-            title: {
-               contains: brand,
-               mode: 'insensitive',
-            },
-         },
-         categories: {
-            some: {
-               title: {
-                  contains: category,
-                  mode: 'insensitive',
-               },
-            },
-         },
-      },
-      orderBy,
-      skip: (page - 1) * 12,
-      take: 12,
-      include: {
-         brand: true,
-         categories: true,
-      },
+   // Data (SS/Prisma)
+   const data = await queryProducts({
+      q,
+      sort,
+      brand,
+      categories: categories ? String(categories).split(',') : [],
+      isAvailable:
+         isAvailable === 'true'
+            ? true
+            : isAvailable === 'false'
+              ? false
+              : undefined,
+      minPrice: minPrice ? Number(minPrice) : undefined,
+      maxPrice: maxPrice ? Number(maxPrice) : undefined,
+      page: Number(page),
+      pageSize: Number(pageSize),
    })
 
    return (
@@ -51,55 +50,25 @@ export default async function Products({ searchParams }) {
             title="Products"
             description="Below is a list of products you have in your cart."
          />
-         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 mb-4">
-            <SortBy initialData={sort} />
-            <CategoriesCombobox
-               initialCategory={category}
-               categories={categories}
-            />
-            <BrandCombobox initialBrand={brand} brands={brands} />
-            <AvailableToggle initialData={isAvailable} />
-         </div>
+         <Filters
+            brands={brands.map((b) => b.title)}
+            categories={cats.map((c) => c.title)}
+            initial={{
+               q: q ?? '',
+               brand: brand ?? '',
+               categories: categories ? String(categories).split(',') : [],
+               isAvailable: isAvailable ?? '',
+               sort: sort ?? 'title_asc',
+               minPrice: minPrice ?? '',
+               maxPrice: maxPrice ?? '',
+            }}
+         />
          <Separator />
-         {isVariableValid(products) ? (
-            <ProductGrid products={products} />
+         {isVariableValid(data.items) ? (
+            <ProductGrid products={data.items} />
          ) : (
             <ProductSkeletonGrid />
          )}
       </>
    )
-}
-
-function getOrderBy(sort) {
-   let orderBy
-
-   switch (sort) {
-      case 'featured':
-         orderBy = {
-            orders: {
-               _count: 'desc',
-            },
-         }
-         break
-      case 'most_expensive':
-         orderBy = {
-            price: 'desc',
-         }
-         break
-      case 'least_expensive':
-         orderBy = {
-            price: 'asc',
-         }
-         break
-
-      default:
-         orderBy = {
-            orders: {
-               _count: 'desc',
-            },
-         }
-         break
-   }
-
-   return orderBy
 }

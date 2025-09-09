@@ -2,23 +2,60 @@ import { verifyJWT } from '@/lib/jwt'
 import { getErrorResponse } from '@/lib/utils'
 import { NextRequest, NextResponse } from 'next/server'
 
+// Put real admin user IDs here (from Prisma Studio)
+const ADMIN_USER_IDS = new Set<string>([
+   // 'cl_admin_123',
+])
+
+const isAdminFromPayload = (p?: { isAdmin?: boolean; role?: string }) =>
+   Boolean(p?.isAdmin || p?.role === 'ADMIN')
+
 export async function middleware(req: NextRequest) {
    if (req.nextUrl.pathname.startsWith('/api/auth')) return NextResponse.next()
 
-   function isTargetingAPI() {
-      return req.nextUrl.pathname.startsWith('/api')
-   }
+   const isAPI = req.nextUrl.pathname.startsWith('/api')
+   const needsAdmin =
+      req.nextUrl.pathname.startsWith('/reports') ||
+      req.nextUrl.pathname.startsWith('/api/reports')
 
-   function getToken() {
-      let token: string | undefined
+   // ---- DEV BYPASS ----
+   const isDevBypass =
+      process.env.NODE_ENV !== 'production' &&
+      process.env.DEV_AUTH_BYPASS === 'true'
 
-      if (req.cookies.has('token')) {
-         token = req.cookies.get('token')?.value
-      } else if (req.headers.get('Authorization')?.startsWith('Bearer ')) {
-         token = req.headers.get('Authorization')?.substring(7)
+   if (isDevBypass) {
+      const devAdminId = process.env.DEV_ADMIN_ID || 'dev-admin-id'
+      const devIsAdmin =
+         (process.env.DEV_IS_ADMIN ?? 'true').toLowerCase() === 'true'
+      // if trying to access an admin page but devIsAdmin=false → redirect/403
+      if (needsAdmin && !devIsAdmin) {
+         return isAPI
+            ? getErrorResponse(403, 'FORBIDDEN')
+            : NextResponse.redirect(new URL('/', req.url))
       }
 
-      return token
+      // otherwise, forward headers + set cookies
+      const h = new Headers(req.headers)
+      h.set('X-USER-ID', devAdminId)
+      h.set('X-USER-ADMIN', String(devIsAdmin))
+
+      const res = NextResponse.next({ request: { headers: h } })
+      res.cookies.set('token', 'dev-bypass', { httpOnly: true, path: '/' })
+      res.cookies.set('logged-in', 'true', { path: '/' })
+      res.cookies.set('is-admin', String(devIsAdmin), {
+         httpOnly: false,
+         path: '/',
+         sameSite: 'lax',
+         secure: process.env.NODE_ENV === 'production',
+      })
+      return res
+   }
+   // --------------------
+
+   const getToken = () => {
+      if (req.cookies.has('token')) return req.cookies.get('token')!.value
+      const auth = req.headers.get('Authorization')
+      return auth?.startsWith('Bearer ') ? auth.slice(7) : undefined
    }
 
    if (!process.env.JWT_SECRET_KEY) {
@@ -27,30 +64,43 @@ export async function middleware(req: NextRequest) {
    }
 
    const token = getToken()
-
    if (!token) {
-      if (isTargetingAPI()) return getErrorResponse(401, 'INVALID TOKEN')
-
-      return NextResponse.redirect(new URL('/login', req.url))
+      return isAPI
+         ? getErrorResponse(401, 'INVALID TOKEN')
+         : NextResponse.redirect(new URL('/login', req.url))
    }
 
-   const response = NextResponse.next()
+   const h = new Headers(req.headers)
+   let sub = ''
+   let adminByClaim = false
 
    try {
-      const { sub } = await verifyJWT<{ sub: string }>(token)
-      response.headers.set('X-USER-ID', sub)
-   } catch (error) {
-      if (isTargetingAPI()) {
-         return getErrorResponse(401, 'UNAUTHORIZED')
-      }
-
-      const redirect = NextResponse.redirect(new URL(`/login`, req.url))
+      const payload = await verifyJWT<{ sub: string; isAdmin?: boolean; role?: string }>(token)
+      sub = payload.sub
+      adminByClaim = isAdminFromPayload(payload)
+      h.set('X-USER-ID', sub)
+   } catch {
+      if (isAPI) return getErrorResponse(401, 'UNAUTHORIZED')
+      const redirect = NextResponse.redirect(new URL('/login', req.url))
       redirect.cookies.delete('token')
       redirect.cookies.delete('logged-in')
+      redirect.cookies.delete('is-admin')
       return redirect
    }
 
-   return response
+   const isAdmin = ADMIN_USER_IDS.has(sub) || adminByClaim
+   h.set('X-USER-ADMIN', String(isAdmin))
+
+   // Protect /reports (and /api/reports/*)
+   if (needsAdmin && !isAdmin) {
+      return isAPI
+         ? getErrorResponse(403, 'FORBIDDEN')
+         : NextResponse.redirect(new URL('/', req.url))
+   }
+
+   const res = NextResponse.next({ request: { headers: h } })
+   res.cookies.set('is-admin', String(isAdmin), { httpOnly: false, path: '/' })
+   return res
 }
 
 export const config = {
@@ -63,6 +113,7 @@ export const config = {
       '/payments/:path*',
       '/codes/:path*',
       '/users/:path*',
+      '/reports/:path*',
       '/api/:path*',
    ],
 }

@@ -6,6 +6,7 @@ import type { Metadata, ResolvingMetadata } from 'next'
 import Link from 'next/link'
 
 import { DataSection } from './components/data'
+import { ProductGrid } from '@/components/native/Product'
 
 type Props = {
    params: { productId: string }
@@ -44,6 +45,12 @@ export default async function Product({
       include: {
          brand: true,
          categories: true,
+         crossSellProducts: {
+            include: {
+               brand: true,
+               categories: true,
+            },
+         },
       },
    })
 
@@ -55,6 +62,12 @@ export default async function Product({
                <ImageColumn product={product} />
                <DataSection product={product} />
             </div>
+            {isVariableValid(product.crossSellProducts) && product.crossSellProducts.length > 0 && (
+               <div className="mt-10">
+                  <h3 className="mb-3 text-lg font-medium">You might also like</h3>
+                  <ProductGrid products={product.crossSellProducts as any} />
+               </div>
+            )}
          </>
       )
    }

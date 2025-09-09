@@ -18,6 +18,12 @@ export async function GET(req: Request) {
                      include: {
                         brand: true,
                         categories: true,
+                        crossSellProducts: {
+                           include: {
+                              brand: true,
+                              categories: true,
+                           },
+                        },
                      },
                   },
                },
@@ -87,7 +93,18 @@ export async function POST(req: Request) {
          include: {
             items: {
                include: {
-                  product: true,
+                  product: {
+                     include: {
+                        brand: true,
+                        categories: true,
+                        crossSellProducts: {
+                           include: {
+                              brand: true,
+                              categories: true,
+                           },
+                        },
+                     },
+                  },
                },
             },
          },

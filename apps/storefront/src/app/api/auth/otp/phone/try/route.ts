@@ -8,9 +8,9 @@ import { ZodError } from 'zod'
 
 export async function POST(req: NextRequest) {
    try {
-      const OTP = generateSerial({})
-
       const { phone } = await req.json()
+
+      const OTP = (process.env.DEV_FIXED_OTP || generateSerial({})) as string
 
       // Use isPhoneNumberValid if international
       if (isIranianPhoneNumberValid(phone)) {
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
             Parameters: [
                {
                   name: 'Code',
-                  value: '12345',
+                  value: OTP,
                },
             ],
          })
@@ -40,6 +40,8 @@ export async function POST(req: NextRequest) {
             JSON.stringify({
                status: 'success',
                phone,
+               // echo in dev for convenience
+               dev: process.env.NODE_ENV !== 'production' ? { OTP } : undefined,
             }),
             {
                status: 200,

@@ -6,6 +6,12 @@ export type CartItemWithProduct = Prisma.CartItemGetPayload<{
          include: {
             brand: true
             categories: true
+            crossSellProducts: {
+               include: {
+                  brand: true
+                  categories: true
+               }
+            }
          }
       }
    }
@@ -15,6 +21,12 @@ export type ProductWithIncludes = Prisma.ProductGetPayload<{
    include: {
       brand: true
       categories: true
+      crossSellProducts: {
+         include: {
+            brand: true
+            categories: true
+         }
+      }
    }
 }>
 

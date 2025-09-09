@@ -5,6 +5,24 @@ import { NextRequest, NextResponse } from 'next/server'
 export async function middleware(req: NextRequest) {
    if (req.nextUrl.pathname.startsWith('/api/auth')) return NextResponse.next()
 
+      console.log('devUserId', process.env.DEV_AUTH_BYPASS)
+      // Development auth bypass: simulate a logged-in user without OTP/JWT
+   if (process.env.DEV_AUTH_BYPASS === 'true') {
+      const devUserId = process.env.DEV_USER_ID
+      console.log('devUserId', devUserId)
+      if (devUserId) {
+         const res = NextResponse.next()
+         res.headers.set('X-USER-ID', devUserId)
+         // Make client-side hooks treat the session as logged in
+         res.cookies.set('logged-in', 'true')
+         // Provide a dummy token cookie to avoid redirects on protected pages
+         if (!req.cookies.has('token')) {
+            res.cookies.set('token', 'dev-bypass-token')
+         }
+         return res
+      }
+   }
+
    function isTargetingAPI() {
       return req.nextUrl.pathname.startsWith('/api')
    }
