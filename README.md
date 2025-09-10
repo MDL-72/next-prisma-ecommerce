@@ -25,6 +25,9 @@ Welcome to the open-source Next.js E-Commerce Storefront with Admin Panel projec
 -  [x] UI built with [**Radix**](https://www.radix-ui.com/) and stunning UI components, all thanks to [**shadcn/ui**](https://ui.shadcn.com/).
 -  [x] Type-Validation with **Zod**.
 -  [x] [**Next Metadata API**](https://nextjs.org/docs/api-reference/metadata) for SEO handling.
+-  [x] **Advanced Product Filtering** with multi-select categories, price range, brand filtering, and search.
+-  [x] **Cross-Sell Product Recommendations** with bidirectional relationships and smart suggestions.
+-  [x] **Admin Reports Dashboard** with revenue analytics, sales metrics, and order insights.
 -  [ ] Comprehensive implementations for i18n.
 
 ## 2️⃣ Why are there 2 apps in the app folder?
@@ -57,27 +60,129 @@ Clone the repository.
 git clone https://github.com/sesto-dev/next-prisma-tailwind-ecommerce
 ```
 
-Navigate to each folder in the `apps` folder and and set the variables.
+Navigate to each folder in the `apps` folder and set the variables.
 
 ```sh
+# For storefront
+cd apps/storefront
+cp .env.example .env
+
+# For admin
+cd apps/admin
 cp .env.example .env
 ```
 
 Get all dependencies sorted.
 
 ```sh
+# From project root
 bun install
 ```
 
-Bring your database to life with pushing the database schema.
+Set up your database and seed with sample data.
 
 ```bash
+# For storefront
+cd apps/storefront
+bun run db:push
+bun run db:seed
+
+# For admin (uses same database)
+cd apps/admin
 bun run db:push
 ```
 
+Start the development servers.
+
 ```sh
+# Storefront (port 7777)
+cd apps/storefront
+bun run dev
+
+# Admin (port 8888) - in a new terminal
+cd apps/admin
 bun run dev
 ```
+
+## 🚀 New Features & API Endpoints
+
+### Advanced Product Filtering
+- **Location**: `apps/storefront/src/app/(store)/(routes)/products/`
+- **Features**: 
+  - Multi-select category filtering
+  - Price range slider
+  - Brand filtering
+  - Search functionality
+  - Sort by price/title
+- **API**: `GET /api/products` with query parameters
+
+### Cross-Sell Product Recommendations
+- **Location**: Product detail pages and cart page
+- **Features**:
+  - "You might also like" section on product pages
+  - "Suggested for your cart" on cart page
+  - Bidirectional product relationships
+  - Smart deduplication of suggestions
+- **API**: Enhanced product queries include `crossSellProducts`
+
+### Admin Reports Dashboard
+- **Location**: `apps/admin/src/app/(dashboard)/(routes)/reports/`
+- **Features**:
+  - Revenue analytics with charts
+  - Sales count metrics
+  - Stock level monitoring
+  - Order status tracking
+- **API Endpoints**:
+  - `GET /api/reports/revenue` - Revenue analytics
+  - `GET /api/reports/sales-count` - Sales metrics
+  - `GET /api/reports/stock-count` - Stock levels
+
+### Development Authentication Bypass
+For easier development and testing, you can bypass OTP authentication:
+
+```env
+# In apps/storefront/.env.local
+DEV_AUTH_BYPASS=true
+DEV_USER_ID=<existing-user-id>
+```
+
+## 🎯 Design Decisions & Implementation Approach
+
+### 1. Advanced Product Filtering
+**Approach**: Built a flexible query system using Prisma's advanced filtering capabilities.
+- **Multi-select categories**: Used Prisma's `some` operator with array matching
+- **Price range**: Implemented `gte` and `lte` operators for precise filtering
+- **Search**: Combined `OR` conditions for title and description matching
+- **Sorting**: Dynamic `orderBy` based on user selection
+
+**Design Decision**: Kept filtering server-side for better performance and SEO, with URL state management for shareable filtered views.
+
+### 2. Cross-Sell Product Recommendations
+**Approach**: Implemented bidirectional many-to-many relationships using Prisma's self-referencing relations.
+- **Database Schema**: Added `crossSellProducts` and `crossSellOf` relations to Product model
+- **Bidirectional Links**: Ensured both products in a relationship can recommend each other
+- **Smart Suggestions**: Deduplicated cross-sell products in cart suggestions
+- **Performance**: Used Prisma includes to fetch related data efficiently
+
+**Design Decision**: Made relationships bidirectional to ensure all products can show relevant suggestions, not just the "source" product.
+
+### 3. Admin Reports Dashboard
+**Approach**: Created a comprehensive analytics system with real-time data aggregation.
+- **Revenue Analytics**: Implemented date-range filtering and chart visualization
+- **Sales Metrics**: Built efficient counting queries with proper indexing
+- **Stock Monitoring**: Added real-time stock level tracking
+- **Modular Design**: Separated report logic into reusable utility functions
+
+**Design Decision**: Used server-side data fetching for better performance and real-time accuracy, with client-side chart rendering for interactivity.
+
+### 4. Development Experience
+**Approach**: Enhanced developer productivity with better tooling and debugging.
+- **Auth Bypass**: Added development-only authentication bypass for easier testing
+- **Seed Data**: Created comprehensive seed data with cross-sell relationships
+- **Type Safety**: Maintained full TypeScript coverage with proper Prisma types
+- **Error Handling**: Implemented comprehensive error handling and user feedback
+
+**Design Decision**: Prioritized developer experience while maintaining production security through environment-based feature flags.
 
 ## 🔑 Database
 
