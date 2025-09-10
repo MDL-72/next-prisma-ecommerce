@@ -109,7 +109,94 @@ async function main() {
     }
     console.log(`Products: ${createdProducts.length}`)
 
+    // ---------- cross-sell relationships ----------
+    // Create some cross-sell links between products
+    if (createdProducts.length >= 4) {
+        const nikeProducts = createdProducts.filter(p => p.title.includes('Nike'))
+        const adidasProducts = createdProducts.filter(p => p.title.includes('Adidas'))
+        const appleProducts = createdProducts.filter(p => p.title.includes('Apple'))
+        const sonyProducts = createdProducts.filter(p => p.title.includes('Sony'))
 
+        // Link Nike shoes with each other (bidirectional)
+        if (nikeProducts.length >= 2) {
+            for (let i = 0; i < nikeProducts.length; i++) {
+                const otherNikeProducts = nikeProducts.filter((_, idx) => idx !== i)
+                await prisma.product.update({
+                    where: { id: nikeProducts[i].id },
+                    data: {
+                        crossSellProducts: {
+                            connect: otherNikeProducts.slice(0, 2).map(p => ({ id: p.id }))
+                        }
+                    }
+                })
+            }
+        }
+
+        // Link Adidas shoes with Nike shoes (bidirectional)
+        if (adidasProducts.length >= 1 && nikeProducts.length >= 1) {
+            for (const adidasProduct of adidasProducts) {
+                await prisma.product.update({
+                    where: { id: adidasProduct.id },
+                    data: {
+                        crossSellProducts: {
+                            connect: nikeProducts.slice(0, 2).map(p => ({ id: p.id }))
+                        }
+                    }
+                })
+            }
+            // Also link Nike products back to Adidas
+            for (const nikeProduct of nikeProducts) {
+                await prisma.product.update({
+                    where: { id: nikeProduct.id },
+                    data: {
+                        crossSellProducts: {
+                            connect: adidasProducts.slice(0, 1).map(p => ({ id: p.id }))
+                        }
+                    }
+                })
+            }
+        }
+
+        // Link Apple products with each other (bidirectional)
+        if (appleProducts.length >= 2) {
+            for (let i = 0; i < appleProducts.length; i++) {
+                const otherAppleProducts = appleProducts.filter((_, idx) => idx !== i)
+                await prisma.product.update({
+                    where: { id: appleProducts[i].id },
+                    data: {
+                        crossSellProducts: {
+                            connect: otherAppleProducts.slice(0, 2).map(p => ({ id: p.id }))
+                        }
+                    }
+                })
+            }
+        }
+
+        // Link Sony headphones with Apple products (bidirectional)
+        if (sonyProducts.length >= 1 && appleProducts.length >= 1) {
+            for (const sonyProduct of sonyProducts) {
+                await prisma.product.update({
+                    where: { id: sonyProduct.id },
+                    data: {
+                        crossSellProducts: {
+                            connect: appleProducts.slice(0, 2).map(p => ({ id: p.id }))
+                        }
+                    }
+                })
+            }
+            // Also link Apple products back to Sony
+            for (const appleProduct of appleProducts) {
+                await prisma.product.update({
+                    where: { id: appleProduct.id },
+                    data: {
+                        crossSellProducts: {
+                            connect: sonyProducts.slice(0, 1).map(p => ({ id: p.id }))
+                        }
+                    }
+                })
+            }
+        }
+    }
 
     // ---------- banners ----------
     await prisma.banner.createMany({

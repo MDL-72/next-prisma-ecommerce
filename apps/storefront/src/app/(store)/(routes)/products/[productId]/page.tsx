@@ -24,11 +24,11 @@ export async function generateMetadata(
    })
 
    return {
-      title: product.title,
-      description: product.description,
-      keywords: product.keywords,
+      title: product?.title,
+      description: product?.description,
+      keywords: product?.keywords,
       openGraph: {
-         images: product.images,
+         images: product?.images,
       },
    }
 }

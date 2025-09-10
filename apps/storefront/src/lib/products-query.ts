@@ -101,7 +101,12 @@ export async function queryProducts(params: ProductQuery) {
       include: {
         brand: true,
         categories: true,
-        crossSellProducts: { select: { id: true, title: true, price: true } },
+        crossSellProducts: {
+          include: {
+            brand: true,
+            categories: true,
+          },
+        },
       },
       skip: (page - 1) * pageSize,
       take: pageSize,
